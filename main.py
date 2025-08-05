@@ -1,20 +1,24 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 import xmltodict
 import os
 import pandas as pd
-from tkinter import filedialog
 
+# Variável global para armazenar a pasta selecionada
+pasta_selecionada = None
 
 def escolher_pasta():
+    global pasta_selecionada
     pasta = filedialog.askdirectory()
     if pasta:
-        print(f'Pasta selecionada: {pasta}')
-       
+        pasta_selecionada = pasta
+        messagebox.showinfo("Pasta Selecionada", f"Pasta selecionada:\n{pasta}")
+    else:
+        messagebox.showwarning("Aviso", "Nenhuma pasta selecionada.")
 
 
-def pegar_infos(nome_arquivo, valores):
-    with open(f'nfs/{nome_arquivo}', 'rb') as arquivo_xml:
+def pegar_infos(caminho_arquivo, valores):
+    with open(caminho_arquivo, 'rb') as arquivo_xml:
         dic_arquivo = xmltodict.parse(arquivo_xml)
 
     if 'NFe' in dic_arquivo:
@@ -36,43 +40,44 @@ def pegar_infos(nome_arquivo, valores):
 
 
 def processar_xmls():
-    if not os.path.exists('nfs'):
-        messagebox.showerror("Erro", "A pasta 'nfs' não foi encontrada.")
+    if not pasta_selecionada:
+        messagebox.showerror("Erro", "Nenhuma pasta foi selecionada.")
         return
 
-    arquivos = os.listdir('nfs')
+    arquivos = [f for f in os.listdir(pasta_selecionada) if f.endswith('.xml')]
     if not arquivos:
-        messagebox.showwarning("Aviso", "Nenhum arquivo XML encontrado na pasta 'nfs'.")
+        messagebox.showwarning("Aviso", "Nenhum arquivo XML encontrado na pasta selecionada.")
         return
 
     colunas = ['numero_nota', 'empresa_emissora', 'nome_cliente', 'endereco', 'peso']
     valores = []
 
     for arquivo in arquivos:
+        caminho_completo = os.path.join(pasta_selecionada, arquivo)
         try:
-            pegar_infos(arquivo, valores)
+            pegar_infos(caminho_completo, valores)
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao processar {arquivo}:\n{e}")
             return
 
     df = pd.DataFrame(columns=colunas, data=valores)
-    df.to_excel('NotasFiscais.xlsx', index=False)
-    messagebox.showinfo("Sucesso", "Notas processadas e salvas em 'NotasFiscais.xlsx'")
+    caminho_saida = os.path.join(pasta_selecionada, 'NotasFiscais.xlsx')
+    df.to_excel(caminho_saida, index=False)
+    messagebox.showinfo("Sucesso", f"Notas processadas e salvas em:\n{caminho_saida}")
 
 
 # Interface
 janela = tk.Tk()
 janela.title("Leitor de Notas Fiscais XML")
-janela.geometry("300x180")
+janela.geometry("320x200")
 
 titulo = tk.Label(janela, text="Processador de Notas Fiscais", font=("Arial", 14))
 titulo.pack(pady=10)
 
+botao_pasta = tk.Button(janela, text='Selecionar Pasta', command=escolher_pasta, bg="#2196F3", fg="white", height=2, width=20)
+botao_pasta.pack(pady=5)
+
 botao = tk.Button(janela, text="Processar XMLs", command=processar_xmls, bg="#4CAF50", fg="white", height=2, width=20)
 botao.pack(pady=10)
-
-botao_pasta = tk.Button(janela, text='Selecionar Pasta', command=escolher_pasta)
-botao_pasta.pack(pady=5) 
-
 
 janela.mainloop()
